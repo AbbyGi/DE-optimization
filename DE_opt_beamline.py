@@ -40,55 +40,6 @@ best_gen_sol = []  # holding best individuals of each generation
 best_fitness = [0]  # holds fitness of best individuals of each generation
 
 
-def test_velocity_using_time(m_pos, m_set, t):
-    motors = [sample_stage.x, sample_stage.y, sample_stage.z]
-    for i in range(len(motors)):
-        motors[i].move(m_pos[i])
-    moving = []
-    for i in range(len(motors)):
-        moving.append(np.abs(m_set[i] - motors[i].position))
-    # set velocity to distance / time (t)
-    for i in range(len(motors)):
-        velocity = np.round(moving[i] / t, 1)
-        if motors[i].velocity.low_limit <= velocity <= motors[i].velocity.high_limit:
-            motors[i].velocity.set(velocity)
-            print(velocity)
-        else:
-            print('Bad velocity')
-    for i in range(len(motors)):
-        motors[i].set(m_set[i])
-    print('done')
-
-
-def test_motor_reading(pos):
-    # test function
-    position_list = []
-    status = testing_stage.x.move(pos, wait=False)
-    while not status.done:
-        position_list.append(testing_stage.x.position)
-    num_of_positions = len(position_list)
-    return position_list, num_of_positions
-
-
-def plot_test_motor_reading(position_list):
-    # test function
-    pos_index = np.arange(len(position_list))
-    plt.figure()
-    plt.plot(pos_index, position_list)
-
-
-def simple_parabola(x):
-    # function to optimize
-    x = np.asarray(x)
-    return -3 * x ** 2 + 3
-
-
-def beamline_test_function(x):
-    # function to optimize
-    x = np.asarray(x)
-    return np.sin(4 * x) - np.cos(8 * x) + 2
-
-
 def ensure_bounds(vec, bounds):
     # Makes sure each individual stays within bounds and adjusts them if they aren't
     vec_new = []
@@ -113,8 +64,6 @@ def omea(population, motors):
     watch_positions = []
     watch_intensities = []
     movements = []
-
-    print('************', population)
 
     def f(*args, **kwargs):
         curr_pos = []
@@ -178,7 +127,6 @@ def omea(population, motors):
         st.watch(f)  # use status on motor that needs to move the most
         while not st.done:
             time.sleep(0.00001)
-        # time.sleep(1.0)
         # fitness of next individual
         ind_sol.append(xs.channel1.rois.roi01.value.get())
 
@@ -300,35 +248,11 @@ def rand_2(pop, popsize, t_indx, mut, bounds):
     return v_donor
 
 
-def test_velocity_using_motor_moving_most(m_pos, m_set):
-    motors = [sample_stage.x, sample_stage.y, sample_stage.z]
-    for i in range(len(motors)):
-        motors[i].move(m_pos[i])
-    moving = []
-    for i in range(len(motors)):
-        moving.append(np.abs(m_set[i] - motors[i].position))
-    # set velocity to distance / time (t)
-    max_to_move = np.max(moving)
-    max_moving_motor_index = moving.index(max_to_move)
-    motors[max_moving_motor_index].velocity.set(motors[max_moving_motor_index].velocity.high_limit)
-    time_needed = max_to_move / motors[max_moving_motor_index].velocity.high_limit
-    for i in range(len(motors)):
-        if i != max_moving_motor_index:
-            velocity = np.round(moving[i] / time_needed, 1)
-            if motors[i].velocity.low_limit <= velocity <= motors[i].velocity.high_limit:
-                motors[i].velocity.set(velocity)
-            else:
-                print("This is a problem that needs thinking and fixing")
-    for i in range(len(motors)):
-        motors[i].set(m_set[i])
-    return
-
-
 def update_velocity(motors, distances_to_move):
     # call before any movement
     max_distance = np.max(distances_to_move)
     max_dist_index = distances_to_move.index(max_distance)
-    motors[max_dist_index].velocity.set(motors[max_dist_index].velocity.high_limit)  # ***
+    motors[max_dist_index].velocity.set(motors[max_dist_index].velocity.high_limit * .9)  # ***
     time_needed = max_distance / motors[max_dist_index].velocity.get()
     for i in range(len(motors)):
         if i != max_dist_index:
@@ -454,9 +378,6 @@ def diff_ev(motors, threshold, bounds=None, popsize=10, crosspb=0.8, mut=0.05, m
             print('Finished')
             break
         else:
-            # *** need to check this
-            # randomizes worst individual
-            # movements.clear()
             new_pos = np.zeros(2)
             curr_pos = []
             for k in range(len(motors)):
@@ -473,17 +394,6 @@ def diff_ev(motors, threshold, bounds=None, popsize=10, crosspb=0.8, mut=0.05, m
             if randomized_sol[0] > ind_sol[change_index]:
                 ind_sol[change_index] = randomized_sol[0]
                 pop[change_index] = new_pos[0]
-            #    # movements.append(np.abs(motors[k].position - changed_indv[k]))
-            # max_move_index = movements.index(np.max(movements))
-            # update_velocity(motors, movements)
-            # for k in range(len(changed_indv)):
-            #     if k == max_move_index:
-            #         st = motors[k].set(changed_indv[k])
-            #     else:
-            #         motors[k].set(changed_indv[k])
-            # while not st.done:
-            #     time.sleep(0.00001)
-            # ind_sol[change_index] = xs.channel1.rois.roi01.value.get()
 
     # Stop xspress3 acquisition
     xs.settings.acquire.put(0)
